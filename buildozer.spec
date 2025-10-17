@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,tflite,png,jpg,kv
 version = 0.1
 requirements = python3,kivy,tensorflow
-orientation = sensor
+orientation = all
 fullscreen = 1
 
 [buildozer]
