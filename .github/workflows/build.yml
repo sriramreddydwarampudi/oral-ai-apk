@@ -1,41 +1,48 @@
 name: Build APK
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Preinstall Cython (for .pyx → .c)
+        run: pip install cython==0.29.36
+
+      - name: Build APK with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
         with:
-          python-version: 3.12
+          workdir: .
+          buildozer_version: stable
+          command: buildozer android debug
 
-      - name: Install system dependencies
+      - name: Find and Upload APK
         run: |
-          sudo apt update
-          sudo apt install -y python3-distutils python3-dev build-essential git zip unzip openjdk-17-jdk
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.36
-
-      - name: Build APK
-        working-directory: .
-        run: buildozer android debug
-
-      - name: Find APK
-        run: |
-          APK=$(find . -name "*.apk" | head -n1)
-          echo "APK=$APK"
-          echo "apk_path=$APK" >> $GITHUB_ENV
+          APK_PATH=$(find . -name "*.apk" | head -n 1)
+          echo "APK found at: $APK_PATH"
+          if [ -f "$APK_PATH" ]; then
+            echo "apk_path=$APK_PATH" >> $GITHUB_ENV
+          else
+            echo "❌ APK not found"
+            exit 1
+          fi
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: package
+          name: versepad-apk
           path: ${{ env.apk_path }}
+
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "🔍 Build failed. Dumping last lines of any build logs:"
+          find . -name "*.log" | xargs -r tail -n 50 || echo "No logs found"
