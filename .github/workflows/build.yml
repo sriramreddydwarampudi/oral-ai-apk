@@ -1,48 +1,40 @@
-name: Build APK
+name: Build
 
-on:
-  push:
-    branches: [main]
-  pull_request:
+on: [push, pull_request]
 
 jobs:
-  build:
+  build-android:
+    name: Build for Android
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: 📦 Checkout repository
         uses: actions/checkout@v4
+      - name: Clean previous builds
+        run: rm -rf .buildozer
 
-      - name: Preinstall Cython (for .pyx → .c)
-        run: pip install cython==0.29.36
+      - name: 🧹 Clean Buildozer cache (optional but safe)
+        run: |
+          sudo pip install buildozer
+          buildozer android clean || true
 
-      - name: Build APK with Buildozer
+      - name: 🔨 Build APK with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
           workdir: .
           buildozer_version: stable
           command: buildozer android debug
 
-      - name: Find and Upload APK
-        run: |
-          APK_PATH=$(find . -name "*.apk" | head -n 1)
-          echo "APK found at: $APK_PATH"
-          if [ -f "$APK_PATH" ]; then
-            echo "apk_path=$APK_PATH" >> $GITHUB_ENV
-          else
-            echo "❌ APK not found"
-            exit 1
-          fi
-
-      - name: Upload APK
+      - name: 📤 Upload built APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: versepad-apk
-          path: ${{ env.apk_path }}
+          name: Music21DAW-APK
+          path: ${{ steps.buildozer.outputs.filename }}
 
-      - name: Show Logs on Failure
+      - name: 🚨 Show logs on failure
         if: failure()
         run: |
-          echo "🔍 Build failed. Dumping last lines of any build logs:"
-          find . -name "*.log" | xargs -r tail -n 50 || echo "No logs found"
+          echo "Build failed. Showing logs..."
+          cat .buildozer/android/platform/build-arm64-v8a/build/output.txt || true
