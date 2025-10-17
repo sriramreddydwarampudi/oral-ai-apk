@@ -13,9 +13,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-  
       - name: Preinstall Cython (for .pyx → .c)
         run: pip install cython==0.29.36
+
+      - name: Fix missing user for Buildozer Action
+        run: |
+          sudo useradd -m user || true
+          sudo chown -R user:user /github/workspace
 
       - name: Build APK with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
