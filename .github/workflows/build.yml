@@ -1,33 +1,59 @@
-name: Build
+name: Build APK
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
-    name: Build APK using Buildozer (Docker)
+
     steps:
-      - name: 📦 Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: 🐍 Install dependencies
+      - name: Preinstall Android SDK build-tools (for AIDL)
         run: |
-          sudo apt update
-          sudo apt install -y python3-pip zip unzip openjdk-17-jdk
-          pip install buildozer cython
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
+          cd $HOME/.buildozer/android/platform/android-sdk
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip -d cmdline-tools
+          yes | cmdline-tools/bin/sdkmanager --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
+            "platform-tools" "platforms;android-34" "build-tools;36.0.0"
 
-      - name: 🧰 Prepare environment
+      - name: Preinstall Cython (for .pyx → .c)
+        run: pip install cython==0.29.36
+
+      - name: Build APK with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          workdir: .
+          buildozer_version: stable
+          command: buildozer android debug
+
+      - name: Find and Upload APK
         run: |
-          echo "ANDROIDSDK=/opt/android" >> $GITHUB_ENV
-          echo "ANDROIDNDK=/opt/android/ndk" >> $GITHUB_ENV
-          echo "ANDROIDAPI=34" >> $GITHUB_ENV
+          APK_PATH=$(find . -name "*.apk" | head -n 1)
+          echo "APK found at: $APK_PATH"
+          if [ -f "$APK_PATH" ]; then
+            echo "apk_path=$APK_PATH" >> $GITHUB_ENV
+          else
+            echo "❌ APK not found"
+            exit 1
+          fi
 
-      - name: 🔨 Build APK
-        run: |
-          buildozer android debug
-
-      - name: 📤 Upload built APK
+      - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: oral-ai-apk
-          path: bin/*.apk
+          name: dental-detection-apk
+          path: ${{ env.apk_path }}
+
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "🔍 Build failed. Dumping last lines of any build logs:"
+          find . -name "*.log" | xargs -r tail -n 50 || echo "No logs found"
