@@ -1,62 +1,25 @@
-name: Build APK
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
+name: Build
+on: [push, pull_request]
 
 jobs:
-  build:
+  # Build job. Builds app for Android with Buildozer
+  build-android:
+    name: Build for Android
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout your repository
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # Step 2: Preinstall Cython
-      - name: Preinstall Cython (for .pyx → .c)
-        run: pip install cython==0.29.36
-
-      # Step 3: Ensure 'user' exists (for Buildozer Action)
-      - name: Create Buildozer user (if needed)
-        run: |
-          sudo useradd -m user || true
-          if [ -d "$GITHUB_WORKSPACE" ]; then
-            sudo chown -R user:user "$GITHUB_WORKSPACE"
-          fi
-
-      # Step 4: Build APK with Buildozer
-      - name: Build APK with Buildozer
+      - name: Build with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
-          workdir: ${{ github.workspace }}
+          workdir: test_app
           buildozer_version: stable
-          command: buildozer android debug
 
-      # Step 5: Find the APK file
-      - name: Find and Upload APK
-        run: |
-          APK_PATH=$(find "$GITHUB_WORKSPACE" -name "*.apk" | head -n 1)
-          echo "APK found at: $APK_PATH"
-          if [ -f "$APK_PATH" ]; then
-            echo "apk_path=$APK_PATH" >> $GITHUB_ENV
-          else
-            echo "❌ APK not found"
-            exit 1
-          fi
-
-      # Step 6: Upload APK artifact
-      - name: Upload APK
-        if: success()
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dental-detection-apk
-          path: ${{ env.apk_path }}
-
-      # Step 7: Show logs on failure
-      - name: Show Logs on Failure
-        if: failure()
-        run: |
-          echo "🔍 Build failed. Dumping last lines of any build logs:"
-          find "$GITHUB_WORKSPACE" -name "*.log" | xargs -r tail -n 50 || echo "No logs found"
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
