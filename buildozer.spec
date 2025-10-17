@@ -15,7 +15,7 @@ orientation = portrait
 fullscreen = 1
 
 # Entry point (main Python file)
-android.entrypoint = main.py
+android.entrypoint = .
 
 # Permissions
 android.permissions = INTERNET,CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
