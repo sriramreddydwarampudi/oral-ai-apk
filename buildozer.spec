@@ -1,50 +1,36 @@
 [app]
 # App basic info
 title = Dental Detection
-package.name = orai
-package.domain = org.example
+package.name = dentaldetection
+package.domain = org.orai
 source.dir = .
-source.include_exts = py,tflite,png,jpg,kv
+source.include_exts = py,png,jpg,jpeg,kv,atlas,tflite
 version = 0.1
 
-# Dependencies (keep only what’s needed)
-requirements = python3,kivy,tensorflow,pillow,opencv-python
+# Requirements - simplified for stability
+requirements = python3,kivy,numpy,pillow,opencv,android
 
 # App behavior
 orientation = portrait
-fullscreen = 1
-
-# Entry point (main Python file)
-android.entrypoint = .
+fullscreen = 0
 
 # Permissions
 android.permissions = INTERNET,CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 
-# (optional) icon and presplash
-# icon.filename = %(source.dir)s/data/icon.png
-# presplash.filename = %(source.dir)s/data/presplash.png
+# Android configuration
+android.api = 33
+android.minapi = 21
+android.ndk = 25b
+android.archs = arm64-v8a
+android.allow_backup = True
+android.accept_sdk_license = True
+
+# Logging
+android.logcat_filters = *:S python:D
 
 # Exclude unnecessary files
-[app:source.exclude_patterns]
-*.pyc
-*.pyo
-*.pyd
-__pycache__/
-.git*
-docs/
-tests/
-images/
-nltk_data/
+source.exclude_patterns = *.pyc,*.pyo,__pycache__/*,.git/*,.github/*,*.md
 
 [buildozer]
 log_level = 2
 warn_on_root = 1
-
-# Android build configuration
-[app.android]
-android.api = 34
-android.minapi = 21
-android.ndk = 25b
-android.arch = arm64-v8a
-android.allow_backup = True
-android.debug = True
