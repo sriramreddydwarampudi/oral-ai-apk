@@ -18,7 +18,7 @@ fullscreen = 0
 android.permissions = INTERNET,CAMERA,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
 
 # Android configuration
-android.api = 33
+android.api = 32
 android.minapi = 21
 android.ndk = 25b
 android.archs = arm64-v8a
