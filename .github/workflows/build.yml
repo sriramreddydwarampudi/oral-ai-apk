@@ -11,7 +11,7 @@ jobs:
   build-android:
     name: Build APK
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: 📦 Checkout repository
@@ -41,13 +41,52 @@ jobs:
           rm -rf .buildozer
           rm -rf bin
 
-      - name: 🔨 Build APK with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
         with:
-          workdir: .
-          buildozer_version: stable
-          command: buildozer -v android debug
+          python-version: '3.11'
+
+      - name: 📦 Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            ccache
+
+      - name: 🔨 Install Buildozer
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.33
+
+      - name: 💾 Cache Buildozer dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            .buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-
+
+      - name: 🔧 Build APK with Buildozer
+        run: |
+          buildozer android debug
+        env:
+          BUILDOZER_WARN_ON_ROOT: 0
 
       - name: 📤 Upload APK Artifact
         if: success()
@@ -56,29 +95,34 @@ jobs:
           name: DentalDetection-Debug-APK
           path: bin/*.apk
           if-no-files-found: error
+          retention-days: 30
 
       - name: 📊 Show build info
         if: success()
         run: |
           echo "✅ Build successful!"
           ls -lh bin/*.apk
-          echo "APK size: $(du -h bin/*.apk | cut -f1)"
+          APK_PATH=$(find bin -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            echo "APK: $APK_PATH"
+            echo "Size: $(du -h $APK_PATH | cut -f1)"
+          fi
 
       - name: 🚨 Show logs on failure
         if: failure()
         run: |
-          echo "❌ Build failed. Showing recent logs..."
-          echo "=== Buildozer log ==="
+          echo "❌ Build failed. Showing logs..."
+          echo ""
+          echo "=== Last 300 lines of buildozer output ==="
           if [ -f ".buildozer/android/platform/build-arm64-v8a/build.log" ]; then
-            tail -n 200 .buildozer/android/platform/build-arm64-v8a/build.log
-          else
-            echo "build.log not found"
+            tail -n 300 .buildozer/android/platform/build-arm64-v8a/build.log
           fi
           echo ""
-          echo "=== Directory structure ==="
-          find .buildozer -name "*.log" 2>/dev/null | head -10
+          echo "=== Python build logs ==="
+          find .buildozer -name "*.log" -type f 2>/dev/null | while read log; do
+            echo "--- $log ---"
+            tail -n 50 "$log"
+          done
           echo ""
-          echo "=== Last buildozer output ==="
-          if [ -f ".buildozer/logs/last.txt" ]; then
-            tail -n 100 .buildozer/logs/last.txt
-          fi
+          echo "=== Build directory structure ==="
+          ls -R .buildozer/android/platform/ 2>/dev/null | head -100
