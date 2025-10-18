@@ -1,22 +1,45 @@
-name: Build
+name: Build Android APK
 
-on: [push, pull_request]
+on: 
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-android:
-    name: Build for Android
+    name: Build APK
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
-      - name: Clean previous builds
-        run: rm -rf .buildozer
 
-      - name: 🧹 Clean Buildozer cache (optional but safe)
+      - name: 🔍 Verify files
         run: |
-          sudo pip install buildozer
-          buildozer android clean || true
+          echo "Checking required files..."
+          ls -lah
+          if [ ! -f "main.py" ]; then
+            echo "❌ main.py not found!"
+            exit 1
+          fi
+          if [ ! -f "buildozer.spec" ]; then
+            echo "❌ buildozer.spec not found!"
+            exit 1
+          fi
+          if [ ! -f "yolov8_640_float32.tflite" ]; then
+            echo "⚠️ Warning: yolov8_640_float32.tflite not found (app will work without it)"
+          else
+            echo "✅ Model file found"
+            ls -lh yolov8_640_float32.tflite
+          fi
+
+      - name: 🧹 Clean previous builds
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
 
       - name: 🔨 Build APK with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
@@ -24,17 +47,38 @@ jobs:
         with:
           workdir: .
           buildozer_version: stable
-          command: buildozer android debug
+          command: buildozer -v android debug
 
-      - name: 📤 Upload built APK
+      - name: 📤 Upload APK Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Music21DAW-APK
-          path: ${{ steps.buildozer.outputs.filename }}
+          name: DentalDetection-Debug-APK
+          path: bin/*.apk
+          if-no-files-found: error
+
+      - name: 📊 Show build info
+        if: success()
+        run: |
+          echo "✅ Build successful!"
+          ls -lh bin/*.apk
+          echo "APK size: $(du -h bin/*.apk | cut -f1)"
 
       - name: 🚨 Show logs on failure
         if: failure()
         run: |
-          echo "Build failed. Showing logs..."
-          cat .buildozer/android/platform/build-arm64-v8a/build/output.txt || true
+          echo "❌ Build failed. Showing recent logs..."
+          echo "=== Buildozer log ==="
+          if [ -f ".buildozer/android/platform/build-arm64-v8a/build.log" ]; then
+            tail -n 200 .buildozer/android/platform/build-arm64-v8a/build.log
+          else
+            echo "build.log not found"
+          fi
+          echo ""
+          echo "=== Directory structure ==="
+          find .buildozer -name "*.log" 2>/dev/null | head -10
+          echo ""
+          echo "=== Last buildozer output ==="
+          if [ -f ".buildozer/logs/last.txt" ]; then
+            tail -n 100 .buildozer/logs/last.txt
+          fi
